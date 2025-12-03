@@ -1,37 +1,21 @@
 import streamlit as st
-import streamlit_authenticator as stauth
 import pandas as pd
-from pathlib import Path
+import os
 
-# --- Define users ---
-names = ["Alice", "Bob"]
-usernames = ["alice", "bob"]
-passwords = ["alice123", "bob123"]  # plain passwords
+st.set_page_config(page_title="Daily organizer", page_icon="📊", layout="centered")
+st.title("Organize Away 📊")
+st.write("Feel too overwhelmed with tasks?")
+st.write("Let us take do one small thing first and let momentum do the rest. ")
 
-# Hash the passwords (important!)
-hashed_passwords = stauth.Hasher(passwords).generate()
+# --- Simple username login ---
+username = st.text_input("Enter your username")
 
-# Create the authenticator object
-authenticator = stauth.Authenticate(
-    names,
-    usernames,
-    hashed_passwords,
-    "my_cookie_name",          # cookie name
-    "my_signature_key",        # any random string
-    cookie_expiry_days=1       # days until cookie expires
-)
+if username:
+    # Create a user-specific file
+    task_file = f"tasks_{username}.csv"
 
-# --- Login widget ---
-name, authentication_status, username = authenticator.login("Login", "main")
-
-if authentication_status:
-    st.success(f"Welcome {name}!")
-
-    # --- User-specific tasks ---
-    user_file = Path(f"tasks_{username}.csv")
-
-    if user_file.exists():
-        df = pd.read_csv(user_file)
+    if os.path.exists(task_file):
+        df = pd.read_csv(task_file)
     else:
         df = pd.DataFrame(columns=["task", "completed"])
 
@@ -39,26 +23,26 @@ if authentication_status:
 
     if st.button("Add task") and new_task.strip() != "":
         df = df._append({"task": new_task, "completed": False}, ignore_index=True)
-        df.to_csv(user_file, index=False)
+        df.to_csv(task_file, index=False)
         st.success("Task Added!")
 
     # Display tasks
     st.subheader("Your Tasks")
+
     if len(df) == 0:
         st.write("No tasks yet.")
     else:
         for i, row in df.iterrows():
             done = st.checkbox(row["task"], value=row["completed"], key=i)
             df.at[i, "completed"] = done
-        df.to_csv(user_file, index=False)
 
-    # Progress bar
+        # Save updated states
+        df.to_csv(task_file, index=False)
+
+    # Show progress
     completed_count = df["completed"].sum()
     total = len(df)
     st.progress(completed_count / total if total else 0)
     st.write(f"Completed {completed_count}/{total} tasks")
-
-elif authentication_status == False:
-    st.error("Username/password is incorrect")
 else:
-    st.warning("Please enter your username and password")
+    st.warning("Please enter a username to continue.")
