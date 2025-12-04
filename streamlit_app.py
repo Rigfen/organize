@@ -80,7 +80,7 @@ if username:
                     df.at[i, "completed"] = True
                     df.at[i, "completed_date"] = datetime.now().strftime("%Y-%m-%d %H:%M")
                     df.to_csv(task_file, index=False)
-                    st.experimental_rerun()
+                    st.rerun()            # 👈 updated here
 
                 # Deadline display
                 if pd.notna(row["deadline"]):
