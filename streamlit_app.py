@@ -18,7 +18,11 @@ if username:
     if os.path.exists(task_file):
         df = pd.read_csv(task_file)
     else:
-        df = pd.DataFrame(columns=["task", "completed", "deadline"])
+        df = pd.DataFrame(columns=["task", "completed", "deadline", "completed_date"])
+
+    # Make sure completed_date column exists
+    if "completed_date" not in df.columns:
+        df["completed_date"] = ""
 
     # --- Add New Task ---
     new_task = st.text_input("Add a new task:")
@@ -34,7 +38,8 @@ if username:
             {
                 "task": new_task,
                 "completed": False,
-                "deadline": deadline
+                "deadline": deadline,
+                "completed_date": ""
             },
             ignore_index=True
         )
@@ -47,26 +52,62 @@ if username:
     if len(df) == 0:
         st.write("No tasks yet.")
     else:
-        for i, row in df.iterrows():
-            cols = st.columns([3, 2])
 
-            # Checkbox
-            done = cols[0].checkbox(row["task"], value=row["completed"], key=i)
-            df.at[i, "completed"] = done
+        # Split into active and completed
+        active_tasks = df[df["completed"] == False]
+        completed_tasks = df[df["completed"] == True]
 
-            # Deadline
-            if pd.notna(row["deadline"]):
-                dl = pd.to_datetime(row["deadline"])
-                time_left = dl - datetime.now()
+        # ============================
+        # ACTIVE TASKS SECTION
+        # ============================
+        st.markdown("### 📝 Active Tasks")
 
-                if time_left.total_seconds() < 0:
-                    cols[1].write("⏰ **Overdue!**")
+        if len(active_tasks) == 0:
+            st.write("No active tasks.")
+        else:
+            for i, row in active_tasks.iterrows():
+                cols = st.columns([3, 2])
+
+                # Checkbox for active task
+                checked = cols[0].checkbox(
+                    row["task"],
+                    value=row["completed"],
+                    key=f"active_{i}"
+                )
+
+                # If checked off, move to completed & timestamp
+                if checked:
+                    df.at[i, "completed"] = True
+                    df.at[i, "completed_date"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    df.to_csv(task_file, index=False)
+                    st.experimental_rerun()
+
+                # Deadline display
+                if pd.notna(row["deadline"]):
+                    dl = pd.to_datetime(row["deadline"])
+                    time_left = dl - datetime.now()
+
+                    if time_left.total_seconds() < 0:
+                        cols[1].write("⏰ **Overdue!**")
+                    else:
+                        hours_left = int(time_left.total_seconds() // 3600)
+                        cols[1].write(f"⏳ {hours_left} hrs left")
                 else:
-                    hours_left = int(time_left.total_seconds() // 3600)
-                    cols[1].write(f"⏳ {hours_left} hrs left")
-            else:
-                cols[1].write("No timer")
+                    cols[1].write("No timer")
 
+        # ============================
+        # COMPLETED TASKS SECTION
+        # ============================
+        st.markdown("### ✔️ Completed Tasks")
+
+        if len(completed_tasks) == 0:
+            st.write("No completed tasks yet.")
+        else:
+            for i, row in completed_tasks.iterrows():
+                completed_date = row["completed_date"]
+                st.write(f"✔ **{row['task']}** — completed on **{completed_date}**")
+
+        # Save any updates
         df.to_csv(task_file, index=False)
 
     # --- Show progress ---
@@ -77,4 +118,3 @@ if username:
 
 else:
     st.warning("Please enter a username to continue.")
-
