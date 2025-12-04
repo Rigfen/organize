@@ -24,13 +24,27 @@ if username:
     if "completed_date" not in df.columns:
         df["completed_date"] = ""
 
+    # --- AUTO CLEANUP: remove completed tasks older than 2 days ---
+    now = datetime.now()
+
+    def too_old(row):
+        try:
+            if row["completed"] and row["completed_date"]:
+                completed_dt = datetime.strptime(row["completed_date"], "%Y-%m-%d %H:%M")
+                return (now - completed_dt).days >= 2
+            return False
+        except:
+            return False
+
+    df = df[~df.apply(too_old, axis=1)]
+    df.to_csv(task_file, index=False)
+
     # --- Add New Task ---
     new_task = st.text_input("Add a new task:")
 
     d = st.date_input("Due date (optional):")
     t = st.time_input("Time (optional):")
 
-    # combine date + time
     deadline = datetime.combine(d, t)
 
     if st.button("Add task") and new_task.strip() != "":
@@ -53,7 +67,6 @@ if username:
         st.write("No tasks yet.")
     else:
 
-        # Split into active and completed
         active_tasks = df[df["completed"] == False]
         completed_tasks = df[df["completed"] == True]
 
@@ -68,21 +81,18 @@ if username:
             for i, row in active_tasks.iterrows():
                 cols = st.columns([3, 2])
 
-                # Checkbox for active task
                 checked = cols[0].checkbox(
                     row["task"],
                     value=row["completed"],
                     key=f"active_{i}"
                 )
 
-                # If checked off, move to completed & timestamp
                 if checked:
                     df.at[i, "completed"] = True
                     df.at[i, "completed_date"] = datetime.now().strftime("%Y-%m-%d %H:%M")
                     df.to_csv(task_file, index=False)
-                    st.rerun()            # 👈 updated here
+                    st.rerun()
 
-                # Deadline display
                 if pd.notna(row["deadline"]):
                     dl = pd.to_datetime(row["deadline"])
                     time_left = dl - datetime.now()
@@ -107,7 +117,6 @@ if username:
                 completed_date = row["completed_date"]
                 st.write(f"✔ **{row['task']}** — completed on **{completed_date}**")
 
-        # Save any updates
         df.to_csv(task_file, index=False)
 
     # --- Show progress ---
