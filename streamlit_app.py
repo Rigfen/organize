@@ -114,11 +114,21 @@ if username:
 
         df.to_csv(task_file, index=False)
 
-    # PROGRESS BAR
-    completed_count = df["completed"].sum()
-    total = len(df)
-    st.progress(completed_count / total if total else 0)
-    st.write(f"Completed {completed_count}/{total} tasks")
+   # --- SAFETY CHECK: ensure required columns exist ---
+for col in ["task", "completed", "deadline", "completed_date"]:
+    if col not in df.columns:
+        if col == "completed":
+            df[col] = False
+        else:
+            df[col] = ""
+df["completed"] = df["completed"].astype(bool)
+
+# --- Show progress ---
+completed_count = df["completed"].sum()
+total = len(df)
+st.progress(completed_count / total if total else 0)
+st.write(f"Completed {completed_count}/{total} tasks")
+
 
 else:
     st.warning("Please enter a username to continue.")
