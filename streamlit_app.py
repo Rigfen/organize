@@ -144,7 +144,7 @@ else:
                 df.loc[match, "completed"] = True
                 df.loc[match, "completed_date"] = now_iso()
                 save_tasks(df, task_file)
-                st.experimental_rerun()
+                
 
 # Completed tasks
 completed_df = df[df["completed"] == True].copy()
