@@ -115,7 +115,7 @@ if st.button("Add task") and new_task.strip() != "":
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
     save_tasks(df, task_file)
     st.success("Task added.")
-    st.experimental_rerun()
+    
 
 # -------------------------
 # Display tasks
