@@ -178,7 +178,7 @@ st.markdown(
         <button style="padding: 0.6em 1.2em; background-color: #4CAF50; 
                        color: white; border: none; border-radius: 8px;
                        font-size: 16px; cursor: pointer;">
-            Open Little Planner
+            Help me make more!
         </button>
     </a>
     """,
