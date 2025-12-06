@@ -109,3 +109,4 @@ if st.button("Add task") and new_task.strip() != "":
         "task": new_task.strip(),
         "completed": False,
         "created": now_iso(),_
+    }
