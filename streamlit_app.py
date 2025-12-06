@@ -171,3 +171,17 @@ total = len(df)
 progress_value = completed_count / total if total else 0
 st.progress(progress_value)
 st.write(f"Completed {completed_count}/{total} tasks")
+
+st.markdown(
+    """
+    <a href="https://littleplanner.streamlit.app/" target="_blank">
+        <button style="padding: 0.6em 1.2em; background-color: #4CAF50; 
+                       color: white; border: none; border-radius: 8px;
+                       font-size: 16px; cursor: pointer;">
+            Open Little Planner
+        </button>
+    </a>
+    """,
+    unsafe_allow_html=True
+)
+
