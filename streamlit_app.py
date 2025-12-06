@@ -1,149 +1,104 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime, timedelta
 import os
-from datetime import datetime
 
-st.set_page_config(page_title="Daily organizer", page_icon="📊", layout="centered")
-st.title("Organize Away 📊")
-st.write("Feel too overwhelmed with tasks?")
-st.write("Let us take do one small thing first and let momentum do the rest.")
+st.title("Task Organizer")
 
-# --- Simple username login ---
-username = st.text_input("Enter your username")
+TASK_FILE = "tasks.csv"
 
-if username:
-    task_file = f"tasks_{username}.csv"
+# ---------------------------------------------------------
+# Load tasks safely
+# ---------------------------------------------------------
+def load_tasks():
+    if not os.path.exists(TASK_FILE):
+        return pd.DataFrame(columns=["task", "completed", "created", "completed_date"])
 
-    # ============================================================
-    # SAFE LOADING (fixes empty or corrupted CSV problems)
-    # ============================================================
-    try:
-        if os.path.exists(task_file) and os.path.getsize(task_file) > 0:
-            df = pd.read_csv(task_file)
-        else:
-            raise Exception("Empty or missing file")
-    except:
-        df = pd.DataFrame(columns=["task", "completed", "deadline", "completed_date"])
-        df.to_csv(task_file, index=False)
+    df = pd.read_csv(TASK_FILE)
 
-    # ============================================================
-    # ENSURE REQUIRED COLUMNS EXIST
-    # ============================================================
-    required_cols = ["task", "completed", "deadline", "completed_date"]
+    # Ensure required columns exist
+    required_cols = ["task", "completed", "created", "completed_date"]
     for col in required_cols:
         if col not in df.columns:
-            if col == "completed":
-                df[col] = False
-            else:
-                df[col] = ""
+            df[col] = None
 
-    df["completed"] = df["completed"].astype(bool)
+    # Fix NaN values
+    df["completed"] = df["completed"].fillna(False)
+    return df
 
-    # ============================================================
-    # AUTO CLEANUP — REMOVE COMPLETED TASKS OLDER THAN 2 DAYS
-    # ============================================================
+# ---------------------------------------------------------
+# Save tasks
+# ---------------------------------------------------------
+def save_tasks(df):
+    df.to_csv(TASK_FILE, index=False)
+
+# ---------------------------------------------------------
+# Remove completed tasks older than 2 days
+# ---------------------------------------------------------
+def clean_old_tasks(df):
     now = datetime.now()
 
-    def too_old(row):
-        try:
-            if row["completed"] and row["completed_date"]:
-                completed_dt = datetime.strptime(row["completed_date"], "%Y-%m-%d %H:%M")
-                return (now - completed_dt).days >= 2
-            return False
-        except:
-            return False
+    def keep_row(row):
+        if row["completed"] and pd.notna(row["completed_date"]):
+            try:
+                comp_date = datetime.fromisoformat(row["completed_date"])
+                return (now - comp_date) < timedelta(days=2)
+            except:
+                return False
+        return True
 
-    df = df[~df.apply(too_old, axis=1)]
-    df.to_csv(task_file, index=False)
+    df = df[df.apply(keep_row, axis=1)]
+    return df
 
-    # ============================================================
-    # ADD NEW TASK SECTION
-    # ============================================================
-    new_task = st.text_input("Add a new task:")
-    d = st.date_input("Due date (optional):")
-    t = st.time_input("Time (optional):")
-    deadline = datetime.combine(d, t)
+# Load tasks
+df = load_tasks()
+df = clean_old_tasks(df)
+save_tasks(df)
 
-    if st.button("Add task") and new_task.strip() != "":
-        df = df._append(
-            {
-                "task": new_task,
-                "completed": False,
-                "deadline": deadline,
-                "completed_date": ""
-            },
-            ignore_index=True
-        )
-        df.to_csv(task_file, index=False)
-        st.success("Task Added!")
+# ---------------------------------------------------------
+# Add new task
+# ---------------------------------------------------------
+new_task = st.text_input("Add a new task:")
 
-    # ============================================================
-    # DISPLAY TASKS
-    # ============================================================
-    st.subheader("Your Tasks")
+if st.button("Add"):
+    if new_task.strip():
+        new_row = {
+            "task": new_task,
+            "completed": False,
+            "created": datetime.now().isoformat(),
+            "completed_date": None
+        }
+        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        save_tasks(df)
+        st.experimental_rerun()
 
-    if len(df) == 0:
-        st.write("No tasks yet.")
-    else:
-        active_tasks = df[df["completed"] == False]
-        completed_tasks = df[df["completed"] == True]
+# ---------------------------------------------------------
+# Display active tasks
+# ---------------------------------------------------------
+st.subheader("Active Tasks")
 
-        # ------------------------------
-        # ACTIVE TASKS
-        # ------------------------------
-        st.markdown("### 📝 Active Tasks")
-        if len(active_tasks) == 0:
-            st.write("No active tasks.")
-        else:
-            for i, row in active_tasks.iterrows():
-                cols = st.columns([3, 2])
+for index, row in df[df["completed"] == False].iterrows():
+    col1, col2 = st.columns([6, 1])
+    with col1:
+        st.write(row["task"])
+    with col2:
+        if st.checkbox("✔", key=f"complete_{index}"):
+            df.at[index, "completed"] = True
+            df.at[index, "completed_date"] = datetime.now().isoformat()
+            save_tasks(df)
+            st.experimental_rerun()
 
-                checked = cols[0].checkbox(
-                    row["task"],
-                    value=row["completed"],
-                    key=f"active_{i}"
-                )
+# ---------------------------------------------------------
+# Completed section
+# ---------------------------------------------------------
+st.subheader("Completed Tasks (last 2 days)")
+completed_df = df[df["completed"] == True].copy()
 
-                # When task checked complete → update + timestamp + refresh
-                if checked:
-                    df.at[i, "completed"] = True
-                    df.at[i, "completed_date"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-                    df.to_csv(task_file, index=False)
-                    st.rerun()
+# Count
+completed_count = len(completed_df)
+st.write(f"Completed: **{completed_count}**")
 
-                # Deadline display
-                if pd.notna(row["deadline"]):
-                    dl = pd.to_datetime(row["deadline"])
-                    time_left = dl - datetime.now()
-
-                    if time_left.total_seconds() < 0:
-                        cols[1].write("⏰ **Overdue!**")
-                    else:
-                        hours_left = int(time_left.total_seconds() // 3600)
-                        cols[1].write(f"⏳ {hours_left} hrs left")
-                else:
-                    cols[1].write("No timer")
-
-        # ------------------------------
-        # COMPLETED TASKS
-        # ------------------------------
-        st.markdown("### ✔️ Completed Tasks")
-        if len(completed_tasks) == 0:
-            st.write("No completed tasks yet.")
-        else:
-            for i, row in completed_tasks.iterrows():
-                st.write(f"✔ **{row['task']}** — completed on **{row['completed_date']}**")
-
-        df.to_csv(task_file, index=False)
-
-    # ============================================================
-    # PROGRESS BAR
-    # ============================================================
-    completed_count = df["completed"].sum()
-    total = len(df)
-
-    st.progress(completed_count / total if total else 0)
-    st.write(f"Completed {completed_count}/{total} tasks")
-
-else:
-    st.warning("Please enter a username to continue.")
+# Show completed tasks sorted by date
+for index, row in completed_df.iterrows():
+    comp_date = row["completed_date"][:16] if row["completed_date"] else "Unknown"
+    st.write(f"✔ {row['task']} — **{comp_date}**")
