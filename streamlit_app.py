@@ -108,5 +108,5 @@ if st.button("Add task") and new_task.strip() != "":
     new_row = {
         "task": new_task.strip(),
         "completed": False,
-        "created": now_iso(),_
+        "created" : now_iso(),
     }
