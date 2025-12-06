@@ -14,26 +14,22 @@ username = st.text_input("Enter your username")
 if username:
     task_file = f"tasks_{username}.csv"
 
-    # Load or create dataframe
-    # Load or create dataframe
-if os.path.exists(task_file):
-    df = pd.read_csv(task_file)
-else:
-    df = pd.DataFrame(columns=["task", "completed", "deadline", "completed_date"])
+    # --- Load or create dataframe ---
+    if os.path.exists(task_file):
+        df = pd.read_csv(task_file)
+    else:
+        df = pd.DataFrame(columns=["task", "completed", "deadline", "completed_date"])
 
-# --- FIX MISSING COLUMNS (prevents KeyError) ---
-required_cols = ["task", "completed", "deadline", "completed_date"]
+    # --- FIX missing columns ---
+    required_cols = ["task", "completed", "deadline", "completed_date"]
+    for col in required_cols:
+        if col not in df.columns:
+            if col == "completed":
+                df[col] = False
+            else:
+                df[col] = ""
 
-for col in required_cols:
-    if col not in df.columns:
-        if col == "completed":
-            df[col] = False
-        else:
-            df[col] = ""
-
-# Force correct types
-df["completed"] = df["completed"].astype(bool)
-
+    df["completed"] = df["completed"].astype(bool)
 
     # --- AUTO CLEANUP: remove completed tasks older than 2 days ---
     now = datetime.now()
@@ -55,7 +51,6 @@ df["completed"] = df["completed"].astype(bool)
 
     d = st.date_input("Due date (optional):")
     t = st.time_input("Time (optional):")
-
     deadline = datetime.combine(d, t)
 
     if st.button("Add task") and new_task.strip() != "":
@@ -77,25 +72,18 @@ df["completed"] = df["completed"].astype(bool)
     if len(df) == 0:
         st.write("No tasks yet.")
     else:
-
         active_tasks = df[df["completed"] == False]
         completed_tasks = df[df["completed"] == True]
 
-        # ============================
-        # ACTIVE TASKS SECTION
-        # ============================
+        # ACTIVE TASKS
         st.markdown("### 📝 Active Tasks")
-
         if len(active_tasks) == 0:
             st.write("No active tasks.")
         else:
             for i, row in active_tasks.iterrows():
                 cols = st.columns([3, 2])
-
                 checked = cols[0].checkbox(
-                    row["task"],
-                    value=row["completed"],
-                    key=f"active_{i}"
+                    row["task"], value=row["completed"], key=f"active_{i}"
                 )
 
                 if checked:
@@ -116,21 +104,17 @@ df["completed"] = df["completed"].astype(bool)
                 else:
                     cols[1].write("No timer")
 
-        # ============================
-        # COMPLETED TASKS SECTION
-        # ============================
+        # COMPLETED TASKS
         st.markdown("### ✔️ Completed Tasks")
-
         if len(completed_tasks) == 0:
             st.write("No completed tasks yet.")
         else:
             for i, row in completed_tasks.iterrows():
-                completed_date = row["completed_date"]
-                st.write(f"✔ **{row['task']}** — completed on **{completed_date}**")
+                st.write(f"✔ **{row['task']}** — completed on **{row['completed_date']}**")
 
         df.to_csv(task_file, index=False)
 
-    # --- Show progress ---
+    # PROGRESS BAR
     completed_count = df["completed"].sum()
     total = len(df)
     st.progress(completed_count / total if total else 0)
