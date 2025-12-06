@@ -15,14 +15,25 @@ if username:
     task_file = f"tasks_{username}.csv"
 
     # Load or create dataframe
-    if os.path.exists(task_file):
-        df = pd.read_csv(task_file)
-    else:
-        df = pd.DataFrame(columns=["task", "completed", "deadline", "completed_date"])
+    # Load or create dataframe
+if os.path.exists(task_file):
+    df = pd.read_csv(task_file)
+else:
+    df = pd.DataFrame(columns=["task", "completed", "deadline", "completed_date"])
 
-    # Make sure completed_date column exists
-    if "completed_date" not in df.columns:
-        df["completed_date"] = ""
+# --- FIX MISSING COLUMNS (prevents KeyError) ---
+required_cols = ["task", "completed", "deadline", "completed_date"]
+
+for col in required_cols:
+    if col not in df.columns:
+        if col == "completed":
+            df[col] = False
+        else:
+            df[col] = ""
+
+# Force correct types
+df["completed"] = df["completed"].astype(bool)
+
 
     # --- AUTO CLEANUP: remove completed tasks older than 2 days ---
     now = datetime.now()
