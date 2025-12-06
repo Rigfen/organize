@@ -108,5 +108,66 @@ if st.button("Add task") and new_task.strip() != "":
     new_row = {
         "task": new_task.strip(),
         "completed": False,
-        "created" : now_iso(),
+        "created": now_iso(),
+        "deadline": deadline_iso,
+        "completed_date": ""
     }
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    save_tasks(df, task_file)
+    st.success("Task added.")
+    st.experimental_rerun()
+
+# -------------------------
+# Display tasks
+# -------------------------
+st.markdown("## Your Tasks")
+
+# Active tasks
+active_df = df[df["completed"] == False].copy().reset_index(drop=True)
+if active_df.empty:
+    st.write("No active tasks.")
+else:
+    st.markdown("### 📝 Active")
+    for _, row in active_df.iterrows():
+        cols = st.columns([6, 2])
+        with cols[0]:
+            st.write(row["task"])
+            if row["created"]:
+                st.caption(f"Created: {fmt_dt(row['created'])}")
+            if row["deadline"]:
+                st.caption(f"Deadline: {fmt_dt(row['deadline'])}")
+        with cols[1]:
+            key = f"{username}_{row['task']}_{row['created']}"
+            checked = st.checkbox("Mark done", key=key)
+            if checked:
+                match = (df["task"] == row["task"]) & (df["created"] == row["created"])
+                df.loc[match, "completed"] = True
+                df.loc[match, "completed_date"] = now_iso()
+                save_tasks(df, task_file)
+                st.experimental_rerun()
+
+# Completed tasks
+completed_df = df[df["completed"] == True].copy()
+if completed_df.empty:
+    st.markdown("### ✔️ Completed")
+    st.write("No completed tasks yet.")
+else:
+    try:
+        completed_df["completed_parsed"] = pd.to_datetime(completed_df["completed_date"], errors="coerce")
+        completed_df = completed_df.sort_values("completed_parsed", ascending=False)
+    except:
+        pass
+
+    st.markdown("### ✔️ Completed (most recent first)")
+    st.write(f"Completed: **{len(completed_df)}**")
+    for _, row in completed_df.iterrows():
+        st.write(f"✔ {row['task']} — completed on **{fmt_dt(row['completed_date'])}**")
+
+# -------------------------
+# Progress
+# -------------------------
+completed_count = int(df["completed"].sum())
+total = len(df)
+progress_value = completed_count / total if total else 0
+st.progress(progress_value)
+st.write(f"Completed {completed_count}/{total} tasks")
